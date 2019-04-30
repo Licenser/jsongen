@@ -35,13 +35,13 @@
 %% representing the value.
 -spec decode(json_text()) -> json_term().
 decode(JsonString) ->
-     ?JSONLIB:decode(JsonString).
+    ?JSONLIB:decode(JsonString).
 
 %% @doc Translates a mochijson2 Erlang term representing a JSON value
 %% into its textual representation.
 -spec encode(json_term()) -> json_text().
 encode(JsonErlang) ->
-     ?JSONLIB:encode(JsonErlang).
+    ?JSONLIB:encode(JsonErlang).
 
 %% @doc
 %% Reads a JSON schema in textual format, converting it into
@@ -50,44 +50,44 @@ encode(JsonErlang) ->
 %% be on the form "http:...", "file:..." or a filename.
 -spec decode_url(string()) -> {ok, json_term()} | {error, any()}.
 decode_url(URL) ->
-  case jsg_utils:lookup_schema(URL) of
-    Result={ok,_} ->
-      Result;
-    _ ->
-      Result = decode_url1(URL),
-      case Result of
-	{ok,Schema} ->
-	  jsg_utils:store_schema(URL,Schema);
-	_ ->
-	  ok
-      end,
-      Result
-  end.
+    case jsg_utils:lookup_schema(URL) of
+        Result={ok,_} ->
+            Result;
+        _ ->
+            Result = decode_url1(URL),
+            case Result of
+                {ok,Schema} ->
+                    jsg_utils:store_schema(URL,Schema);
+                _ ->
+                    ok
+            end,
+            Result
+    end.
 
 decode_url1(URL=[$h,$t,$t,$p,$:|_]) ->
-  Result = httpc:request(URL),
-  case Result of
-    {ok, {{_Version, 200, _ReasonPhrase},
-          _Headers,
-          JsonString}} ->
-      JsonTerm = ?MODULE:decode(JsonString),
-      {ok, JsonTerm};
-    _ ->
-      Result
-  end;
+    Result = httpc:request(URL),
+    case Result of
+        {ok, {{_Version, 200, _ReasonPhrase},
+              _Headers,
+              JsonString}} ->
+            JsonTerm = ?MODULE:decode(JsonString),
+            {ok, JsonTerm};
+        _ ->
+            Result
+    end;
 decode_url1([$f,$i,$l,$e,$:|Filename]) ->
-  case file:read_file(Filename) of
-    {ok, JsonString} ->
-      JsonTerm = ?MODULE:decode(JsonString),
-      {ok, JsonTerm};
-    Error ->
-      io:format
-	("*** Error: could not read file ~s due to ~p~n",
-	 [Filename,Error]),
-      Error
-  end;
+    case file:read_file(Filename) of
+        {ok, JsonString} ->
+            JsonTerm = ?MODULE:decode(JsonString),
+            {ok, JsonTerm};
+        Error ->
+            io:format
+              ("*** Error: could not read file ~s due to ~p~n",
+               [Filename,Error]),
+            Error
+    end;
 decode_url1(URL) ->
-  decode_url1([$f,$i,$l,$e,$:|URL]).
+    decode_url1([$f,$i,$l,$e,$:|URL]).
 
 pretty_json(Json) ->
-  jiffy:encode(jiffy:decode(Json), [pretty]).
+    jsone:encode(jsone:decode(Json), [{indent, 1}, {space, 2}]).
