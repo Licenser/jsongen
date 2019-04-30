@@ -340,22 +340,21 @@ gen_typed_schema(Schema, Options, Depth) ->
             case jsg_jsonschema:items(Schema) of
                 {itemSchema, ItemSchema} ->
                     case AdditionalItems of
-
                         true ->
-                            arrayOfAny(MinItems,MaxItems,UniqueItems, Depth - 1);
+                            arrayOfAny(Options, MinItems,MaxItems,UniqueItems, Depth - 1);
 
                         false ->
-                            array([ItemSchema], {MinItems,MaxItems}, UniqueItems, Depth - 1);
+                            array([ItemSchema], Options, {MinItems,MaxItems}, UniqueItems, Depth - 1);
 
                         AdditionalSchema ->
                             ?LOG("AdditionalSchema is ~p~n",[AdditionalSchema]),
-                            array([ItemSchema,AdditionalSchema], 
+                            array([ItemSchema,AdditionalSchema], Options,
                                   {MinItems,MaxItems},UniqueItems, Depth - 1)
 
                     end;
 
                 {empty,no_items} ->
-                    arrayOfAny(MinItems,MaxItems,UniqueItems, Depth - 1);
+                    arrayOfAny(Options, MinItems,MaxItems,UniqueItems, Depth - 1);
 
                 {error, bad_items_schema} ->
                     throw({bad_items_schema_in_array})
@@ -576,8 +575,8 @@ gen_typed_schema(Schema, Options, Depth) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Array gen
 
--spec array(jsg_json:json_term(),{integer(),integer()},boolean(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
-array(Schema,{MinItems,MaxItems}, Unique, Depth) ->
+-spec array(jsg_json:json_term(), list(), {integer(),integer()},boolean(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
+array(Schema, Opts, {MinItems,MaxItems}, Unique, Depth) ->
     ?LOG("Array schema is ~p ~n with Unique: ~p~n",[Schema,Unique]),
     case MaxItems of
         undefined ->
@@ -586,9 +585,9 @@ array(Schema,{MinItems,MaxItems}, Unique, Depth) ->
                       begin
                           case Unique of
                               true ->
-                                  arrayGenUnique(Schema, N, Depth);
+                                  arrayGenUnique(Schema, Opts, N, Depth);
                               false ->
-                                  arrayGen(Schema, N, Depth)
+                                  arrayGen(Schema, Opts, N, Depth)
                           end
                       end));
         MaxItems ->
@@ -596,9 +595,9 @@ array(Schema,{MinItems,MaxItems}, Unique, Depth) ->
                  begin
                      case Unique of
                          true ->
-                             arrayGenUnique(Schema, N, Depth);
+                             arrayGenUnique(Schema, Opts, N, Depth);
                          false ->
-                             arrayGen(Schema, N, Depth)
+                             arrayGen(Schema, Opts, N, Depth)
                      end
                  end)
     end.
@@ -615,8 +614,8 @@ insertType(Type, {struct,[Types | Rest]}) ->
     ?LOG ("Final res: ~p ~n",[Res]),
     Res.
 
--spec arrayOfAny(integer(), integer(), boolean(), integer()) -> jsg_json:json_term().
-arrayOfAny(MinItems, MaxItems, Unique, Depth) ->
+-spec arrayOfAny(list(), integer(), integer(), boolean(), integer()) -> jsg_json:json_term().
+arrayOfAny(Options, MinItems, MaxItems, Unique, Depth) ->
     case MaxItems of
         undefined ->
             ?LET(Max, natural_gte(MinItems),
@@ -626,9 +625,9 @@ arrayOfAny(MinItems, MaxItems, Unique, Depth) ->
                                NewSchema =  {struct,[{<<"type">>,RandType}]},
                                case Unique of
                                    true ->
-                                       arrayGenUnique(NewSchema, N, Depth);
+                                       arrayGenUnique(NewSchema, Options, N, Depth);
                                    false ->
-                                       arrayGen(NewSchema, N, Depth)
+                                       arrayGen(NewSchema, Options, N, Depth)
                                end
                            end)));
 
@@ -639,44 +638,57 @@ arrayOfAny(MinItems, MaxItems, Unique, Depth) ->
                           NewSchema =  {struct,[{<<"type">>,RandType}]},
                           case Unique of
                               true ->
-                                  arrayGenUnique(NewSchema, N, Depth);
+                                  arrayGenUnique(NewSchema, Options, N, Depth);
                               false ->
-                                  arrayGen(NewSchema, N, Depth)
+                                  arrayGen(NewSchema, Options, N, Depth)
                           end
                       end))
     end.
 
--spec arrayGen (jsg_json:json_term(), integer(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
-arrayGen(_Schema, _, Depth) when Depth =< 0->
-    [];
-arrayGen(_Schema, 0, _Depth) ->
+-spec arrayGen (jsg_json:json_term(), list(), integer(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
+arrayGen(Schema, Opts, _, Depth) when Depth =< 0->
+    if
+        is_list(Schema) ->
+            ?LET(Sch, selectSchema(Schema),
+                 [json(Sch,  Opts, 0)]);
+        true ->
+            [json(Schema, Opts, 0)]
+    end;
+
+arrayGen(_Schema, _, 0, _Depth) ->
     [];
 
-arrayGen(Schema, N, Depth) when N > 0->
+arrayGen(Schema, Opts, N, Depth) when N > 0->
     ?LOG("arrayGen: ~p ~n",[Schema]),
     if
         is_list(Schema) ->
             ?LET(Sch, selectSchema(Schema),
-                 [json(Sch, [{root, Sch}], Depth - 1) | arrayGen(Schema, N-1, Depth)]);
+                 [json(Sch, Opts, Depth - 1) | arrayGen(Schema, Opts, N-1, Depth)]);
         true ->
-            [json(Schema, [{root, Schema}], Depth - 1) | arrayGen(Schema, N-1, Depth)]
+            [json(Schema, Opts, Depth - 1) | arrayGen(Schema, Opts, N-1, Depth)]
     end.
 
--spec arrayGenUnique(jsg_json:json_term(), integer(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
-arrayGenUnique(_Schema, _, Depth)  when Depth =< 0 ->
+-spec arrayGenUnique(jsg_json:json_term(), list(), integer(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
+arrayGenUnique(Schema, Opts, _, Depth)  when Depth =< 0 ->
+    if
+        is_list(Schema) ->
+            ?LET(Sch, selectSchema(Schema),
+                 [json(Sch, Opts, 0)]);
+        true ->
+            [json(Schema, Opts, 0)]
+    end;
+
+arrayGenUnique(_Schema, _Opts, 0, _Depth) ->
     [];
 
-arrayGenUnique(_Schema, 0, _Depth) ->
-    [];
-
-arrayGenUnique(Schema,N, Depth) when N > 0->
+arrayGenUnique(Schema, Opts, N, Depth) when N > 0->
     ?LOG("arrayGenUnique: ~p ~n",[Schema]),
     if
         is_list(Schema) ->
             ?LET(Sch, selectSchema(Schema),
-                 [json(Sch, [{root, Sch}], Depth - 1) | arrayGenUnique(Schema, N-1, Depth) ]);
+                 [json(Sch, Opts, Depth - 1) | arrayGenUnique(Schema, Opts, N-1, Depth) ]);
         true ->
-            [ json(Schema, [{root, Schema}], Depth - 1) | arrayGenUnique(Schema, N-1 , Depth)]
+            [ json(Schema, Opts, Depth - 1) | arrayGenUnique(Schema, Opts, N-1 , Depth)]
     end.
 
 -spec selectSchema([jsg_json:json_term()]) -> jsg_json:json_term().

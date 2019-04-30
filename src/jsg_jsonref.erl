@@ -1,12 +1,12 @@
 -module(jsg_jsonref).
 
 -export([ deref/2
-	, deref_relative_pointer/4
-	, unref/2
-	, subst/3, substl/4
-	, list_is_integer/1
-	, gen/1
-	]).
+        , deref_relative_pointer/4
+        , unref/2
+        , subst/3, substl/4
+        , list_is_integer/1
+        , gen/1
+        ]).
 
 -export_type([jsonpointer/0]).
 
@@ -25,7 +25,7 @@
 %% 
 %%    - it defines a specific dereferencing mechanism extending JSON
 %%      Reference to accept arbitrary fragment parts.
-                             
+
 %% JSON Reference
 %% http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
 %% 
@@ -51,7 +51,7 @@
 %%    document.  If the representation of the referrant document is JSON,
 %%    then the fragment identifier SHOULD be interpreted as a
 %%    [JSON-Pointer].
-               
+
 %% JavaScript Object Notation (JSON) Pointer
 %% http://tools.ietf.org/html/rfc6901
 %% 
@@ -123,65 +123,64 @@
 -spec unref(JsonRef :: jsg_json:jsonterm(),
             RootJsonTerm :: jsg_json:jsonterm()) -> jsg_json:json_term().
 unref({struct, JsonDict}, RootJsonTerm) ->
-  URI_bin = proplists:get_value(<<"$ref">>,JsonDict),
-  if is_binary(URI_bin) -> % Otherwise unref breaks
-      URI = binary_to_list(URI_bin),
-      {URL,Pointer} = url_pointer(URI),
-      %%io:format("Split ~p into ~p, ~p~n",[URI,URL,Pointer]),
-      case URL of
-        undefined -> JsonTerm = RootJsonTerm;
-        _ -> {ok, JsonTerm} = jsg_json:decode_url(URL)
-      end,
-      % io:format("Dereferencing ~p on ~s~n",[Pointer,jsg_json:encode(JsonTerm)]),
-      {ok,Term} = deref(Pointer,JsonTerm),
-      Term
-  end.
+    URI_bin = proplists:get_value(<<"$ref">>,JsonDict),
+    if is_binary(URI_bin) -> % Otherwise unref breaks
+            URI = binary_to_list(URI_bin),
+            {URL,Pointer} = url_pointer(URI),
+            case URL of
+                undefined -> JsonTerm = RootJsonTerm;
+                _ -> {ok, JsonTerm} = jsg_json:decode_url(URL)
+            end,
+
+            {ok,Term} = deref(Pointer, JsonTerm),
+            Term
+    end.
 
 %% @doc Evaluates the json pointer Pointer in the json value JsonTerm.
 -spec deref(Pointer::jsonpointer(),
             JsonTerm::jsg_json:json_term()) -> {ok,jsg_json:json_term()} | false.
 deref([],JsonTerm) -> {ok,JsonTerm};
 deref([Key|Pointer],JsonTerm) when is_list(JsonTerm) -> %% Array
-  case to_integer(Key) of
-    {ok,Index} ->
-      case Index>length(JsonTerm) of
-	false ->
-	  deref(Pointer,lists:nth(Index + 1,JsonTerm));
-	true -> 
-	  %%io:format
-	    %%("*** Error: access to out-of-bounds index ~p in~n~p~n",
-	     %%[Index,JsonTerm]),
-	  false
-      end;
-    _ -> false
-  end;
+    case to_integer(Key) of
+        {ok,Index} ->
+            case Index>length(JsonTerm) of
+                false ->
+                    deref(Pointer,lists:nth(Index + 1,JsonTerm));
+                true -> 
+                    %%io:format
+                    %%("*** Error: access to out-of-bounds index ~p in~n~p~n",
+                    %%[Index,JsonTerm]),
+                    false
+            end;
+        _ -> false
+    end;
 deref([Key|Pointer],_S={struct, JSON_dict}) -> %% Object
-  %%io:format
+    %%io:format
     %%("deref: ~p,~n~p~n~n",
-     %%[Key,S]),
-  Key_decoded = decode_escaped(Key),
-  Key_bin = list_to_binary(Key_decoded),
-  JsonTerm = proplists:get_value(Key_bin,JSON_dict),
-  if 
-    JsonTerm=/=undefined ->
-      deref(Pointer,JsonTerm);
-    true ->
-      %%io:format
-	%%("*** Error: missing key ~p in~n~p~n",
-	 %%[Key_bin,S]),
-      false
-  end;
+    %%[Key,S]),
+    Key_decoded = decode_escaped(Key),
+    Key_bin = list_to_binary(Key_decoded),
+    JsonTerm = proplists:get_value(Key_bin,JSON_dict),
+    if 
+        JsonTerm=/=undefined ->
+            deref(Pointer,JsonTerm);
+        true ->
+            %%io:format
+            %%("*** Error: missing key ~p in~n~p~n",
+            %%[Key_bin,S]),
+            false
+    end;
 deref([_Key|_],_JsonTerm) -> 
-  %%io:format
+    %%io:format
     %%("*** Error: mismatch between key ~p and~n~p~n",
-     %%[Key,JsonTerm]),
-  false.
+    %%[Key,JsonTerm]),
+    false.
 
 to_integer(Key) when is_integer(Key) ->
-  {ok,Key};
+    {ok,Key};
 to_integer(Key) when is_list(Key) ->
-  try list_to_integer(Key)
-  catch _:_ -> false end.
+    try list_to_integer(Key)
+    catch _:_ -> false end.
 
 %% CBE
 %% @doc Evaluates the json pointer Pointer in the json value JsonTerm and 
@@ -192,21 +191,21 @@ to_integer(Key) when is_list(Key) ->
             NewValue::jsg_jsg_json:json_term()) -> jsg_jsg_json:json_term().
 subst([],_JsonTerm,NewValue) -> NewValue;
 subst([Key|Pointer],JsonTerm,NewValue) when is_list(JsonTerm) -> %% Array
-  case list_is_integer(Key) of
-    true ->
-      Index = list_to_integer(Key),
-      substl(Index,Pointer,JsonTerm,NewValue)
-  end;
+    case list_is_integer(Key) of
+        true ->
+            Index = list_to_integer(Key),
+            substl(Index,Pointer,JsonTerm,NewValue)
+    end;
 subst([Key|Pointer],{struct, JSON_dict},NewValue) -> %% Object
-  Key_bin = list_to_binary(Key),
-  JsonTerm = proplists:get_value(Key_bin,JSON_dict),
-  JSON_dict2 = proplists:delete(Key_bin,JSON_dict),
-  {struct,[{Key_bin,subst(Pointer,JsonTerm,NewValue)}|JSON_dict2]}.
+    Key_bin = list_to_binary(Key),
+    JsonTerm = proplists:get_value(Key_bin,JSON_dict),
+    JSON_dict2 = proplists:delete(Key_bin,JSON_dict),
+    {struct,[{Key_bin,subst(Pointer,JsonTerm,NewValue)}|JSON_dict2]}.
 
 substl(1,Pointer,[H|T],NewValue) -> 
-  [subst(Pointer,H,NewValue)|T];
+    [subst(Pointer,H,NewValue)|T];
 substl(Pos,Pointer,[H|T],NewValue) -> 
-  [H|substl(Pos-1,Pointer,T,NewValue)].
+    [H|substl(Pos-1,Pointer,T,NewValue)].
 
 
 %% CBE
@@ -227,80 +226,80 @@ list_is_integer(S) ->
 -spec url_pointer(uri()) -> {undefined | url(),
                              undefined | jsonpointer()}.
 url_pointer("") ->
-  {undefined, undefined};
+    {undefined, undefined};
 url_pointer([$#|Fragment]) ->
-  {undefined, string:tokens(Fragment,"/")};
+    {undefined, string:tokens(Fragment,"/")};
 url_pointer(URI) ->
-  [URL|Fragments] = string:tokens(URI,"#"),
-  Pointer = case Fragments of
-              [] -> [];
-              [Fragment] -> string:tokens(Fragment,"/")
-            end,
-  {URL,Pointer}.
+    [URL|Fragments] = string:tokens(URI,"#"),
+    Pointer = case Fragments of
+                  [] -> [];
+                  [Fragment] -> string:tokens(Fragment,"/")
+              end,
+    {URL,Pointer}.
 
 deref_relative_pointer(LevelsUp,Continuation,Term,CurrentPointer) 
   when is_integer(LevelsUp), LevelsUp>=0 ->
-  %%io:format("drp:~p ~p~n~p~n~p~n",[LevelsUp,Continuation,Term,CurrentPointer]),
-  PointerLen = length(CurrentPointer),
-  case LevelsUp =< PointerLen of
-    true ->
-      {NewPointer,_} = lists:split(PointerLen-LevelsUp,CurrentPointer),
-      case Continuation of
-	AbsolutePointer when is_list(AbsolutePointer) ->
-	  case deref(NewPointer,Term) of
-	    {ok,Start} ->
-	      deref(AbsolutePointer,Start);
-	    false ->
-	      io:format
-		("*** Error: internal error: "++
-		   "Pointer ~p cannot be resolved in~n~p~n",
-		 [NewPointer,Term]),
-	      throw(bad)
-	  end;
-	$# when NewPointer=/=[] ->
-	  lists:last(NewPointer);
-	_ ->
-	  false
-      end;
-    _ -> false
-  end;
+    %%io:format("drp:~p ~p~n~p~n~p~n",[LevelsUp,Continuation,Term,CurrentPointer]),
+    PointerLen = length(CurrentPointer),
+    case LevelsUp =< PointerLen of
+        true ->
+            {NewPointer,_} = lists:split(PointerLen-LevelsUp,CurrentPointer),
+            case Continuation of
+                AbsolutePointer when is_list(AbsolutePointer) ->
+                    case deref(NewPointer,Term) of
+                        {ok,Start} ->
+                            deref(AbsolutePointer,Start);
+                        false ->
+                            io:format
+                              ("*** Error: internal error: "++
+                                   "Pointer ~p cannot be resolved in~n~p~n",
+                               [NewPointer,Term]),
+                            throw(bad)
+                    end;
+                $# when NewPointer=/=[] ->
+                    lists:last(NewPointer);
+                _ ->
+                    false
+            end;
+        _ -> false
+    end;
 deref_relative_pointer(any,Continuation,Term,CurrentPointer) ->
-  deref_relative_pointer1(0,length(CurrentPointer),Continuation,Term,CurrentPointer).
+    deref_relative_pointer1(0,length(CurrentPointer),Continuation,Term,CurrentPointer).
 
 deref_relative_pointer1(N,PointerLen,Continuation,Term,CurrentPointer) ->
-  if
-    N > PointerLen ->
-      false;
-    true ->
-      case deref_relative_pointer(N,Continuation,Term,CurrentPointer) of
-	Result = {ok,_} ->
-	  Result;
-	false ->
-	  deref_relative_pointer1(N+1,PointerLen,Continuation,Term,CurrentPointer)
-      end
-  end.
+    if
+        N > PointerLen ->
+            false;
+        true ->
+            case deref_relative_pointer(N,Continuation,Term,CurrentPointer) of
+                Result = {ok,_} ->
+                    Result;
+                false ->
+                    deref_relative_pointer1(N+1,PointerLen,Continuation,Term,CurrentPointer)
+            end
+    end.
 
 %% @doc Generates all valid pairs {P,V} where P is a JSON Pointer and
 %% V is its derreferenced value in a given JSON value.
 -spec gen(jsg_jsg_json:json_term()) -> [{jsonpointer(),jsg_jsg_json:json_term()}].
 gen(JsonTerm) when is_list(JsonTerm) -> % Array
-  Indices = lists:map(fun erlang:integer_to_list/1,
-                      lists:seq(0,length(JsonTerm)-1)),
-  PVss = lists:map(fun gen/1,JsonTerm),
-  % PVss = [[{P11,V11},...],
-  %         [{P21,V21},...]...]
-  [ {[], JsonTerm}
-    | lists:concat(
-        lists:zipwith(
-          fun (I,PVs) -> [{[I|P],V} || {P,V} <- PVs] end,
-          Indices,
-          PVss)) ];
+    Indices = lists:map(fun erlang:integer_to_list/1,
+                        lists:seq(0,length(JsonTerm)-1)),
+    PVss = lists:map(fun gen/1,JsonTerm),
+                                                % PVss = [[{P11,V11},...],
+                                                %         [{P21,V21},...]...]
+    [ {[], JsonTerm}
+      | lists:concat(
+          lists:zipwith(
+            fun (I,PVs) -> [{[I|P],V} || {P,V} <- PVs] end,
+            Indices,
+            PVss)) ];
 gen(JsonTerm = {struct, JsonDict}) -> % Object
-  [ {[], JsonTerm}
-    | lists:concat(
-        lists:map(
-          fun ({Key,Value}) -> [ {[Key|P],V} || {P,V} <- gen(Value) ] end,
-          JsonDict)) ];
+    [ {[], JsonTerm}
+      | lists:concat(
+          lists:map(
+            fun ({Key,Value}) -> [ {[Key|P],V} || {P,V} <- gen(Value) ] end,
+            JsonDict)) ];
 gen(JsonTerm) ->
-  [ {[], JsonTerm} ].
-                                    
+    [ {[], JsonTerm} ].
+
