@@ -4,24 +4,33 @@
 
 -include_lib("eqc/include/eqc.hrl").
 
-gen({'or',L}) ->
-  eqc_gen:oneof(lists:map(fun gen/1, L));
-gen({'concat',R1,R2}) ->
+gen(Regexp, R) ->
+    gen_(R).
+    %% ?SUCHTHAT(
+    %%    S,
+    %%    gen_(R),
+    %%    re:run(S, Regexp) =/= nomatch
+    %%   ).
+
+gen_({'or',L}) ->
+  eqc_gen:oneof(lists:map(fun gen_/1, L));
+gen_({'concat',R1,R2}) ->
   ?LET
      ({X,Y},
-      {gen(R1),gen(R2)},
+      {gen_(R1),gen_(R2)},
       X++Y);
-gen({'symbol',S}) ->
+
+gen_({'symbol',S}) ->
   [S];
-gen({'characterClass',CSpec}) ->
+gen_({'characterClass',CSpec}) ->
   gen_characterClass_element(CSpec);
-gen({quantify,R,N}) ->
+gen_({quantify,R,N}) ->
   ?LET(FA,calculate_arity(N),
-       gen({fixed,FA,R}));
-gen({fixed,0,_R}) ->
+       gen_({fixed,FA,R}));
+gen_({fixed,0,_R}) ->
   "";
-gen({fixed,N,R}) ->
-  gen({concat,R,{fixed,N-1,R}}).
+gen_({fixed,N,R}) ->
+  gen_({concat,R,{fixed,N-1,R}}).
 
 gen_characterClass_element(CSpec) ->
   eqc_gen:oneof(lists:map(fun gen_spec_element/1, CSpec)).
@@ -53,7 +62,3 @@ calculate_arity({number_comma,N}) ->
   ?LET(M,nat(),N+M);
 calculate_arity({number_number,N,M}) ->
   eqc_gen:choose(N,M).
-
-
-  
-  

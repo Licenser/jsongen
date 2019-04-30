@@ -27,7 +27,7 @@ has_continuation(Char) ->
   lists:member(Char,[$+,$*,$?,$\\]).
 
 is_special(Char) ->
-  lists:member(Char,[$+,$*,$?,$(,$),${,$},$[,$],$-,$\\,$:,$,,$^,$$,$.,$|]).
+  lists:member(Char,[$+,$*,$?,$(,$),${,$},$[,$],$-,$\\,$,,$^,$$,$.,$|,$:]).
 
 is_continuation(Char,Cont) ->
   lists:member

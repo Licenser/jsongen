@@ -1,7 +1,7 @@
 Rootsymbol pattern.
 Endsymbol '$end'.
 Nonterminals pattern assertion atom quantifier quantifier_prefix escape alternative characterClass characterClassSpecs characterClassSpec number character term characters hexnumber digit_or_char. 
-Terminals '(' ')' '{' '}' '[' ']' '-' '\\' ':' ',' '^' '$' '*' '+' '?' '+?' '*?' '??' '.' '|' basic_char digit '\\x'.
+Terminals '(' ')' '{' '}' '[' ']' '-' '\\' ',' '^' '$' ':' '*' '+' '?' '+?' '*?' '??' '.' '|' basic_char digit '\\x'.
 
 pattern -> pattern '|' pattern : merge_ors('$1','$3').
 pattern -> alternative : '$1'.
@@ -32,6 +32,7 @@ quantifier_prefix -> '{' number ',' '}' : {number_comma,'$2'}.
 quantifier_prefix -> '{' number ',' number '}' : {number_number,'$2','$4'}.
 
 characterClass -> '[' characterClassSpecs ']' : '$2'.
+characterClass -> '[' characterClassSpecs '-' ']' : '$2' ++ [{symbol, $-}].
 
 characterClassSpecs -> characterClassSpec : ['$1'].
 characterClassSpecs -> characterClassSpec characterClassSpecs : ['$1'|'$2'].
@@ -46,6 +47,8 @@ characters -> character characters : ['$1'|'$2'].
 
 character -> basic_char : {symbol,element(3,'$1')}.
 character -> digit : {symbol,element(3,'$1')+$0}.
+character -> ':' : {symbol, $:}.
+character -> '\\' '-' : {symbol, $-}.
 		   
 escape -> '\\x' hexnumber : {symbol,'$2'}.
 escape -> '\\' character : '$2'.
