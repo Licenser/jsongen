@@ -1,7 +1,7 @@
 -module(jesse_validator).
 
 -export([ start_validator/0
-        , validate/2]).
+        , validate/3]).
 
 
 start_validator() ->
@@ -14,14 +14,15 @@ start_validator() ->
             ok
     end.
 
-validate(Schema, Body) ->
-    JSON = mochijson2:decode(Body),
-    case jesse:validate_with_schema(Schema, JSON, [{default_schema_ver, <<"http://json-schema.org/draft-04/schema#">>}]) of
-        {ok, R} ->
-            true;
-        {error, E} ->
+validate(Schema, Root, Body) ->
+    JSON = jsx:decode(Body),
+    State = jesse_state:new(Root, [{default_schema_ver, <<"http://json-schema.org/draft-04/schema#">>}]),
+    State1 = jesse_state:set_current_schema(State, Schema),
+    ResState = jesse_schema_validator:validate_with_state(Schema, JSON, State1),
+    ErrorList = jesse_state:get_error_list(ResState),
+    case ErrorList of
+        [] -> true;
+        E  ->
             io:format("Error: ~p~n", [E]),
-            false;
-        _ ->
             false
     end.
