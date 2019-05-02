@@ -18,11 +18,17 @@ validate(Schema, Root, Body) ->
     JSON = jsx:decode(Body),
     State = jesse_state:new(Root, [{default_schema_ver, <<"http://json-schema.org/draft-04/schema#">>}]),
     State1 = jesse_state:set_current_schema(State, Schema),
-    ResState = jesse_schema_validator:validate_with_state(Schema, JSON, State1),
-    ErrorList = jesse_state:get_error_list(ResState),
-    case ErrorList of
-        [] -> true;
-        E  ->
-            io:format("Error: ~p~n", [E]),
+    try
+        ResState = jesse_schema_validator:validate_with_state(Schema, JSON, State1),
+        ErrorList = jesse_state:get_error_list(ResState),
+        case ErrorList of
+            [] -> true;
+            E  ->
+                io:format("Error: ~p~n", [E]),
+                false
+        end
+    catch
+        E1:E2 ->
+            io:format("Error: ~p:~p~n", [E1, E2]),
             false
     end.
