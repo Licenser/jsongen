@@ -1,0 +1,22 @@
+{"1.1.0",
+[{<<"jesse">>,
+  {git,"https://github.com/for-GET/jesse",
+       {ref,"9f9d050627093d6a43e02a102d78122f0c4989c8"}},
+  0},
+ {<<"jsone">>,{pkg,<<"jsone">>,<<"1.4.7">>},0},
+ {<<"jsx">>,
+  {git,"git://github.com/talentdeficit/jsx.git",
+       {ref,"fc2a001073f2300ba38427c23e83d5673c020542"}},
+  1},
+ {<<"mochijson2">>,
+  {git,"https://github.com/bjnortier/mochijson2.git",
+       {ref,"e162b7f5be57b8a1fcf5cc99aa4948864af42bba"}},
+  0},
+ {<<"rfc3339">>,
+  {git,"git://github.com/andreineculau/rfc3339.git",
+       {ref,"dcc77d66430490620677de8140a3415dfbd3fa61"}},
+  1}]}.
+[
+{pkg_hash,[
+ {<<"jsone">>, <<"A970C23D9700AE7842B526C57677E6E3F10894B429524696EAD547E9302391C0">>}]}
+].

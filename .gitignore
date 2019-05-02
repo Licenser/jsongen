@@ -5,3 +5,6 @@ deps
 *.plt
 *~
 src/regexp_parser.erl
+.rebar3/
+_build/
+ebin/
