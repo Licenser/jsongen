@@ -22,7 +22,7 @@ from_hex(Ch) ->
 
 
 
--file("/Users/hgies/kerl/21.3/lib/parsetools-2.1.8/include/yeccpre.hrl", 0).
+-file("/usr/local/Cellar/erlang/21.3.2/lib/erlang/lib/parsetools-2.1.8/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%

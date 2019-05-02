@@ -78,8 +78,8 @@ json(Schema, Options) ->
     json(Schema, Options, ?DEPTH).
 
 -spec json(jsg_json:json_term(),options(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
-json(Schema, Options, Depth) when Depth =< 0 ->
-    [];
+json(_Schema, _Options, Depth) when Depth =< 0 ->
+    erlang:error(depth);
 json(Schema, Options, Depth) ->
     ?LOG("json(~s,~p)",[jsg_json:encode(Schema),Options]),
     case jsg_jsonschema:schemaType(Schema) of
@@ -93,7 +93,7 @@ json(Schema, Options, Depth) ->
                 %% AH: nop, maybe it is enough the root to be a URL instead of a schema
                 %% [{root,RefSch}|proplists:delete(root,Options)],
                 Options,
-            ?LAZY(json(RefSch, NewOptions, Depth - 1));
+            ?LAZY(json(RefSch, NewOptions, Depth));
         'type' ->
             gen_typed_schema(Schema, Options, Depth);
         'enum' ->
@@ -330,8 +330,8 @@ gen_typed_schema(Schema, Options, Depth) ->
         %%     A JSON array. 
         <<"array">> ->
             MaxItems = jsg_jsonschema:keyword(Schema,"maxItems"),
-            MinItems = jsg_jsonschema:keyword(Schema,"minItems",0),   
-            AdditionalItems = jsg_jsonschema:additionalItems(Schema), 
+            MinItems = jsg_jsonschema:keyword(Schema,"minItems",0),
+            AdditionalItems = jsg_jsonschema:additionalItems(Schema),
 
             UniqueItems = jsg_jsonschema:keyword(Schema, "uniqueItems",false),
             ?LOG("AdditionalItems: ~p ~n",[AdditionalItems]),
@@ -378,7 +378,7 @@ gen_typed_schema(Schema, Options, Depth) ->
 
                 Value -> 
                     MaxPropsGen = Value
-            end,                            
+            end,
 
             ReqProps = [{P,S} || {P,S} <- Properties, lists:member(P, Required)],
             OptProps = [{P,S} || {P,S} <- Properties, not lists:member(P, Required)],       
