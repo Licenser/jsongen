@@ -75,11 +75,13 @@ json(Schema) ->
 
 -spec json(jsg_json:json_term(),options()) -> eqc_gen:gen(jsg_json:json_term()).
 json(Schema, Options) ->
-    json(Schema, Options, ?DEPTH).
+    Depth = proplists:get_value(depth, Options, ?DEPTH),
+    json(Schema, Options, Depth).
+
 
 -spec json(jsg_json:json_term(),options(), integer()) -> eqc_gen:gen(jsg_json:json_term()).
-json(_Schema, _Options, Depth) when Depth =< 0 ->
-    erlang:error(depth);
+%%json(_Schema, _Options, Depth) when Depth =< 0 ->
+%%    erlang:error(depth);
 json(Schema, Options, Depth) ->
     ?LOG("json(~s,~p)",[jsg_json:encode(Schema),Options]),
     case jsg_jsonschema:schemaType(Schema) of
@@ -131,7 +133,7 @@ json(Schema, Options, Depth) ->
                 false ->
                     ?SUCHTHAT(ValidationResult,
                               ?LET(I, eqc_gen:choose(1,length(ListOfSchemas)),
-                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth - 1),
+                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth),
                                         begin
                                             N = valid_schemas(Value,
                                                               delete_nth_element
@@ -162,7 +164,7 @@ json(Schema, Options, Depth) ->
                 false ->
                     ?SUCHTHAT(ValidationResult,
                               ?LET(I, eqc_gen:choose(1,length(ListOfSchemas)),
-                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth - 1),
+                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth),
                                         begin
                                             N = valid_schemas
                                                   (Value,
@@ -191,7 +193,7 @@ json(Schema, Options, Depth) ->
                 false ->
                     ?SUCHTHAT(ValidationResult,
                               ?LET(I, eqc_gen:choose(1,length(ListOfSchemas)),
-                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth - 1),
+                                   ?LET(Value, json(lists:nth(I,ListOfSchemas),Options, Depth),
                                         begin
                                             case valid_schemas
                                                 (Value,delete_nth_element(I,ListOfSchemas)) of
@@ -222,7 +224,7 @@ json(Schema, Options, Depth) ->
                         (binary_to_atom(Fun))(jsg_store:get(eqc_gen_context))
             end;
 
-        _ -> 
+        _ ->
             throw({bad_schema,Schema,?LINE})
     end.
 
@@ -251,13 +253,13 @@ gen_typed_schema(Schema, Options, Depth) ->
 
 
         %% boolean
-        %%     A JSON boolean. 
+        %%     A JSON boolean.
         <<"boolean">> ->
             boolean();
 
 
         %% integer
-        %%     A JSON number without a fraction or exponent part. 
+        %%     A JSON number without a fraction or exponent part.
         <<"integer">> ->
 
             MaxScanned = jsg_jsonschema:keyword(Schema,"maximum"),
@@ -275,7 +277,7 @@ gen_typed_schema(Schema, Options, Depth) ->
                         true -> Max = MaxScanned -1;
                         false -> Max = MaxScanned
                     end
-            end,	    
+            end,
 
             case MinScanned of
                 undefined ->
@@ -375,20 +377,19 @@ gen_typed_schema(Schema, Options, Depth) ->
             case MaxProperties of
                 undefined ->
                     MaxPropsGen = natural_gte(MinProperties);
-
-                Value -> 
+                Value ->
                     MaxPropsGen = Value
             end,
 
             ReqProps = [{P,S} || {P,S} <- Properties, lists:member(P, Required)],
-            OptProps = [{P,S} || {P,S} <- Properties, not lists:member(P, Required)],       
+            OptProps = [{P,S} || {P,S} <- Properties, not lists:member(P, Required)],
             MinOpts = MinProperties - length(ReqProps),
 
-            AddP = 
-                case AdditionalProperties of 
-                    false -> 
+            AddP =
+                case AdditionalProperties of
+                    false ->
                         undefined;
-                    true -> 
+                    true ->
                         {};
                     AddSchema ->
                         AddSchema
@@ -401,14 +402,14 @@ gen_typed_schema(Schema, Options, Depth) ->
             ?LOG("PatternProperties are: ~p~n",[PatternProperties]),
 
             case {PatternProperties,AddP} of
-                {undefined,undefined} ->
+                {undefined, undefined} ->
                     ?LET(N, randIntPositive(MinOpts,length(OptProps)),
                          ?LET(OptPropsGen, choose_n_from_list(OptProps,N),
                               begin
-                                  RawProperties = 
+                                  RawProperties =
                                       [{P,json(S, Options, Depth - 1)} ||
                                           {P,S} <- ReqProps
-                                              ++ 
+                                              ++
                                               OptPropsGen
                                       ],
                                   case proplists:get_value(randomize_properties,Options,true) of
@@ -455,20 +456,20 @@ gen_typed_schema(Schema, Options, Depth) ->
                          ?LET(N_add, randIntPositive(MinOpts - N_opt, (N_max - length(ReqProps)) - N_opt),
                               ?LET({OptPropsGen, AddPropsGen},
                                    {choose_n_from_list(OptProps, N_opt),
-                                    ?LAZY(create_additionals(AddP, N_add))},
+                                    ?LAZY(create_additionals(AddP, N_add, Depth))},
                                    begin
                                        ?LOG("**FINAL PROPS: ~p~n",
                                             [ReqProps ++ OptPropsGen ++ AddPropsGen]),
-                                       RawProperties = 
+                                       RawProperties =
                                            [{P, json(S, Options, Depth - 1)} ||
-                                               {P,S} <- ReqProps
-                                                   ++ 
+                                               {P, S} <- ReqProps
+                                                   ++
                                                    OptPropsGen
                                                    ++
                                                    AddPropsGen
                                            ],
                                        ?LOG("AddPropsGen: ~p ~n",[RawProperties]),
-                                       case proplists:get_value(randomize_properties,Options,true) of
+                                       case proplists:get_value(randomize_properties, Options, true) of
                                            true ->
                                                ?LET(Props,
                                                     randomize_list(RawProperties),
@@ -487,7 +488,7 @@ gen_typed_schema(Schema, Options, Depth) ->
                                    ?LET({OptPropsGen,PatPropsGen,AddPropsGen},
                                         {choose_n_from_list(OptProps,N_opt),
                                          create_patterns(PatternProperties,N_pat),
-                                         ?LAZY(create_additionals(AddP,N_add))},
+                                         ?LAZY(create_additionals(AddP, N_add, Depth))},
                                         begin
                                             RawProperties = 
                                                 [{P, json(S, Options, Depth - 1)} ||
@@ -553,9 +554,13 @@ gen_typed_schema(Schema, Options, Depth) ->
 
         %% any
         %%     Any JSON data, including "null".
-        <<"any">> ->
+        <<"any">> when depth > 0 ->
             ?LOG("'any' keyword found",[]),
             ?LET(TypeGen, anyType(),
+                 json(TypeGen, Depth - 1));
+        <<"any">>  ->
+            ?LOG("'any' keyword found (using scalar due to depth)",[]),
+            ?LET(TypeGen, scalarType(),
                  json(TypeGen, Depth - 1));
 
 
@@ -841,6 +846,15 @@ anyType() ->
                        {1,arrayType()},
                        {1,objectType()}]).
 
+-spec scalarType() -> eqc_gen:gen(jsg_json:json_term()).
+scalarType() ->
+    ?LOG("'sclarType' -> Choosing random type ('any' keyword but not nested due to size)...~n",[]),
+    eqc_gen:frequency([{3,stringType()},
+                       {3,numberType()},
+                       {3,integerType()},
+                       {3,booleanType()},
+                       {2,nullType()}]).
+
 -spec stringType() -> jsg_json:json_term().
 stringType() ->
     {struct,[{<<"type">>,<<"string">>}]}.
@@ -1021,32 +1035,35 @@ create_patterns(PatternPropList, MinimumProps) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generators for additionalProperties keyword
 
--spec additional_gen (jsg_json:json_term() , integer()) -> string().
-additional_gen(_, N) when N =< 0 ->
+-spec additional_gen (jsg_json:json_term(), integer(), integer()) -> string().
+additional_gen(_, N, _Depth) when N =< 0 ->
     [];
 
-additional_gen(AdditionalSchema,N) when N > 0 ->
+additional_gen(AdditionalSchema, N, Depth) when N > 0 ->
     case AdditionalSchema of
-        {} ->
+        {} when Depth > 0 ->
             ?LOG("Empty schema~n",[]),
-            [{randString(), anyType()} | additional_gen(AdditionalSchema, N - 1)];
+            [{randString(), anyType()} | additional_gen(AdditionalSchema, N - 1, Depth)];
+        {}  ->
+            ?LOG("Empty schema~n",[]),
+            [{randString(), scalarType()} | additional_gen(AdditionalSchema, N - 1, Depth)];
         Schema ->
             ?LOG("Not empty schema, type is {randString(),~p}~n",[Schema]),
-            [{randString(), {struct,[Schema]}} | additional_gen(AdditionalSchema, N - 1)]
+            [{randString(), {struct,[Schema]}} | additional_gen(AdditionalSchema, N - 1, Depth)]
     end.
 
--spec create_additionals(jsg_json:json_term(), integer()) -> [string()].
-create_additionals(O, N) ->
-    create_additionals_(O, N).
+-spec create_additionals(jsg_json:json_term(), integer(), integer()) -> [string()].
+create_additionals(O, N, Depth) ->
+    create_additionals_(O, N, Depth).
 
--spec create_additionals_(jsg_json:json_term(), integer()) -> [string()].
-create_additionals_({}, N) ->
-    additional_gen({}, N);
+-spec create_additionals_(jsg_json:json_term(), integer(), integer()) -> [string()].
+create_additionals_({}, N, Depth) ->
+    additional_gen({}, N, Depth);
 
-create_additionals_({struct, AddPropList}, N) ->
+create_additionals_({struct, AddPropList}, N, Depth) ->
     FinalProps = ceiling(N / length(AddPropList)),
     ?LOG ("Final Props: ~p~n",[FinalProps]),
-    L = lists:map (fun(X) -> additional_gen(X,FinalProps) end, AddPropList),
+    L = lists:map (fun(X) -> additional_gen(X, FinalProps, Depth) end, AddPropList),
     ?LOG("Final additionals created: ~p~n",[L]),
     lists:concat(L).
 
