@@ -49,7 +49,7 @@
                                    , create_patterns/1
                                    ]}]).
 
--compile({no_auto_import, [floor/1]}).
+-compile({no_auto_import, [floor/1, binary_to_atom/1]}).
 
 %%LOGS
 %%-define(debug,true).
@@ -554,7 +554,7 @@ gen_typed_schema(Schema, Options, Depth) ->
 
         %% any
         %%     Any JSON data, including "null".
-        <<"any">> when depth > 0 ->
+        <<"any">> when Depth > 0 ->
             ?LOG("'any' keyword found",[]),
             ?LET(TypeGen, anyType(),
                  json(TypeGen, Depth - 1));

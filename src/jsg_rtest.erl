@@ -19,7 +19,7 @@ schemas_test_() ->
   {module,jsongen} = code:ensure_loaded(jsongen),
   {file,File} = code:is_loaded(jsongen),
   DirName = filename:dirname(File),
-  TestDir = DirName++"/../tests",
+  TestDir = DirName++"/../../../../../tests",
   ?debugFmt("Test directory is~n~p~n",[TestDir]),
   Filenames = filelib:wildcard(TestDir++"/*.jsch"),
   ?debugFmt("Will test schemas~n~p~n",[Filenames]),
@@ -37,13 +37,13 @@ schemas_test_() ->
 		("Reading schema~n  ~s~nfailed with error ~p~n",
 		 [SchemaFile,Other]),
 	     Acc
-	 catch _:_ ->
+	 catch _:_:StackTrace ->
 	     ?debugFmt
 	       ("*** Error: could not read JSON schema ~s~n",
 		[SchemaFile]),
 	     ?debugFmt
 	       ("Stacktrace:~n~p~n",
-		[erlang:get_stacktrace()]),
+		[StackTrace]),
 	     Acc
 	 end
      end, [], Filenames).
