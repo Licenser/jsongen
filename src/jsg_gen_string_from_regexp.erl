@@ -1,10 +1,15 @@
 -module(jsg_gen_string_from_regexp).
 
--compile(export_all).
+-export([
+        gen/2, gen_/1,
+        gen_characterClass_element/1,
+        gen_spec_element/1,
+        calculate_arity/1
+        ]).
 
 -include_lib("eqc/include/eqc.hrl").
 
-gen(Regexp, R) -> gen_(R).
+gen(_Regexp, R) -> gen_(R).
 
 %% ?SUCHTHAT(
 %%    S,

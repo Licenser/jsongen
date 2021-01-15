@@ -146,11 +146,10 @@ link_post(_State,Args,{'EXIT',Error}) ->
   error(bad_link);
 link_post(State,Args,Result) ->
   try make_call(postcondition,fun postcondition_int/3,[State,Args,Result])
-  catch Class:Reason ->
+  catch Class:Reason:StackTrace ->
       io:format
         ("Warning: postcondition/3 raises exception ~p~n",
          [Reason]),
-      StackTrace = erlang:get_stacktrace(),
       erlang:raise(Class,Reason,StackTrace)
   end.
 
@@ -193,11 +192,11 @@ validate_call_result_body(Args,Result,Link,Schema) ->
           Body = http_body(Result),
           Validator = get_option(validator),
           try Validator:validate(RealTargetSchema,Body)
-          catch _Class:Reason ->
+          catch _Class:Reason:StackTrace ->
               error_messages:wrong_body_message(Args, Body, RealTargetSchema, Reason),
               io:format
                 ("Stacktrace:~n~p~n",
-                 [erlang:get_stacktrace()]),
+                 [StackTrace]),
               false
           end
       end
@@ -304,11 +303,10 @@ get_wrong_status_list(StatusCode, Body, List) ->
 
 link_next(State,Result,Args) ->
   try make_call(next_state,fun next_state_int/3,[State,Result,Args])
-  catch Class:Reason ->
+  catch Class:Reason:StackTrace ->
       io:format
         ("Warning: next_state/3 raises exception ~p~n",
          [Reason]),
-      StackTrace = erlang:get_stacktrace(),
       erlang:raise(Class,Reason,StackTrace)
   end.
 
@@ -496,7 +494,7 @@ format_http_call(PreURI,RequestType,Body,Params) ->
   URI =
     case Params of
       [] -> PreURI;
-      _ -> PreURI++"?"++encode_parameters(Params)
+      _ -> PreURI++"?"++uri_string:compose_query(Params)
     end,
   io_lib:format
     ("~s using ~s~s",
@@ -524,23 +522,11 @@ to_list(B) when is_binary(B) ->
 to_list(I) when is_integer(I) ->
   integer_to_list(I).
 
-encode_parameters([]) -> "";
-encode_parameters([{Key,Value}|Rest]) ->
-  Continuation =
-    if
-      Rest==[] -> "";
-      true -> "&"++encode_parameters(Rest)
-    end,
-  Key++"="++encode(Value)++Continuation.
-
-encode(String) when is_list(String) ->
-  http_uri:encode(String).
-
 http_request(PreURI,Type,Body,QueryParms,Link,Headers) ->
   URI =
     case QueryParms of
       [] -> PreURI;
-      _ -> PreURI++"?"++encode_parameters(QueryParms)
+      _ -> PreURI++"?"++uri_string:compose_query(QueryParms)
     end,
   URIwithBody =
     case Body of
